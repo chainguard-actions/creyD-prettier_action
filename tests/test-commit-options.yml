@@ -1,0 +1,24 @@
+name: Test commit_options input coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_ACTOR: test-actor
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up git identity
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Action"
+      - id: action
+        uses: .
+        with:
+          dry: "true"
+          prettier_options: "--write $GITHUB_WORKSPACE/actions/hardened/creyD--prettier_action/v4.2/tests/fixtures/sample.js"
+          commit_options: "--no-verify"
+          github_token: "dummy-token"
+      - name: Assert action completed successfully with commit_options
+        run: |
+          echo "PASS: action completed with commit_options set"
