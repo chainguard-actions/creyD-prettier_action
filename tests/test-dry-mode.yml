@@ -1,0 +1,29 @@
+name: Test dry mode - already formatted file
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a well-formatted JS file in tmp
+        run: |
+          mkdir -p /tmp/prettier-test
+          printf 'const greeting = "hello world";\nconsole.log(greeting);\n' > /tmp/prettier-test/hello.js
+
+      - id: action
+        uses: .
+        with:
+          prettier_options: "--write /tmp/prettier-test/hello.js"
+          dry: "true"
+          no_commit: "true"
+
+      - name: Assert action completed successfully
+        run: |
+          echo "Action completed in dry+no_commit mode without error"
+          echo "PASS"

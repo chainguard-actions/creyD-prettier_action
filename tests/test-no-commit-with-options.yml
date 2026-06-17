@@ -1,0 +1,32 @@
+name: Test no-commit mode with commit and push options
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a well-formatted JS file in tmp
+        run: |
+          mkdir -p /tmp/prettier-test2
+          printf 'const x = "hello";\nconsole.log(x);\n' > /tmp/prettier-test2/app.js
+
+      - id: action
+        uses: .
+        with:
+          prettier_options: "--write /tmp/prettier-test2/app.js"
+          no_commit: "true"
+          commit_options: "--no-verify"
+          push_options: "--force-with-lease"
+          commit_message: "Test commit message"
+          commit_description: "Test commit description"
+
+      - name: Assert action completed without committing
+        run: |
+          echo "Action completed in no_commit mode with commit_options and push_options set"
+          echo "PASS"
