@@ -1,0 +1,33 @@
+name: Test invalid plugin is rejected
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          dry: "true"
+          no_commit: "true"
+          prettier_options: "--check **/*.js"
+          prettier_plugins: "some-random-package"
+          allow_other_plugins: "false"
+          github_token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action failed due to invalid plugin
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "Action outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: Expected action to fail with invalid plugin name, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: Action correctly rejected invalid plugin name"

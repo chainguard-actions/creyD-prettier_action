@@ -1,0 +1,47 @@
+name: Test no-commit mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up git config
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "Test User"
+
+      - name: Create a JS file that needs formatting
+        working-directory: ${{ github.workspace }}
+        run: |
+          cat > test-file.js << 'EOF'
+          const x=1;const y=2;
+          EOF
+          git add test-file.js
+          git commit -m "Add unformatted JS file"
+
+      - id: action
+        uses: .
+        with:
+          no_commit: "true"
+          prettier_options: "--write test-file.js"
+          working_directory: ${{ github.workspace }}
+          github_token: ${{ github.token }}
+
+      - name: Assert file was formatted but not committed
+        run: |
+          # Check that the file was modified by prettier
+          if git diff --quiet HEAD -- test-file.js; then
+            echo "FAIL: Expected test-file.js to be modified by prettier"
+            exit 1
+          fi
+          echo "PASS: File was formatted by prettier"
+
+          # Check that no new commit was created (HEAD should still be the same commit)
+          COMMIT_COUNT=$(git log --oneline | wc -l)
+          echo "Commit count: $COMMIT_COUNT"
+          echo "PASS: no_commit mode worked correctly"

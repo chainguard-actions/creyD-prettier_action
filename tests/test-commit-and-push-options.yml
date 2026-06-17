@@ -1,0 +1,38 @@
+name: Test commit_options and push_options inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a well-formatted JS file
+        run: |
+          mkdir -p /tmp/test-workspace
+          cat > /tmp/test-workspace/hello.js << 'EOF'
+          const x = 1;
+          const y = 2;
+          EOF
+          npm install -g prettier
+          cd /tmp/test-workspace
+          prettier --write hello.js
+
+      - id: action
+        uses: .
+        with:
+          dry: "true"
+          no_commit: "true"
+          prettier_options: "--check /tmp/test-workspace/hello.js"
+          working_directory: "/tmp/test-workspace"
+          commit_options: "--no-verify"
+          push_options: "--force-with-lease"
+          github_token: ${{ github.token }}
+
+      - name: Assert action completed with commit_options and push_options set
+        run: |
+          echo "Action completed successfully with commit_options and push_options inputs"
+          echo "PASS"

@@ -1,0 +1,43 @@
+name: Test invalid git_identity is rejected
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up git config
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "Test User"
+
+      - name: Create an unformatted JS file and commit it
+        working-directory: ${{ github.workspace }}
+        run: |
+          printf 'const x=1;const y=2;\n' > ugly2.js
+          git add ugly2.js
+          git commit -m "Add ugly JS file for git identity test"
+
+      - id: action
+        uses: .
+        with:
+          prettier_options: "--write ugly2.js"
+          working_directory: ${{ github.workspace }}
+          git_identity: "invalid-identity"
+          github_token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action failed due to invalid git_identity
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "Action outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: Expected action to fail with invalid git_identity, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: Action correctly rejected invalid git_identity value"
