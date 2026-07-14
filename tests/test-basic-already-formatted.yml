@@ -1,0 +1,35 @@
+name: Test basic usage with already-formatted files
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+      GITHUB_ACTOR: testuser
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a properly formatted JS file in workspace
+        run: |
+          # Write a properly formatted JS file (prettier default style)
+          printf 'const greeting = "hello";\nconsole.log(greeting);\n' > "$GITHUB_WORKSPACE/formatted.js"
+          git add "$GITHUB_WORKSPACE/formatted.js"
+          git commit -m "add formatted js" || true
+          echo "File content:"
+          cat "$GITHUB_WORKSPACE/formatted.js"
+
+      - id: action
+        uses: .
+        with:
+          prettier_options: "--write formatted.js"
+          no_commit: "true"
+          working_directory: "${{ github.workspace }}"
+          github_token: "dummy-token"
+
+      - name: Assert action succeeded
+        run: |
+          echo "Action completed successfully"
+          echo "PASS: prettier ran without errors on already-formatted file"

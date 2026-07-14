@@ -1,0 +1,43 @@
+name: Test invalid prettier plugin name causes failure
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+      GITHUB_ACTOR: testuser
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a JS file in workspace
+        run: |
+          printf 'const x = 1;\n' > "$GITHUB_WORKSPACE/sample.js"
+          git add "$GITHUB_WORKSPACE/sample.js"
+          git commit -m "add sample js" || true
+          echo "File created:"
+          cat "$GITHUB_WORKSPACE/sample.js"
+
+      - id: action
+        uses: .
+        with:
+          dry: "true"
+          no_commit: "true"
+          prettier_options: "--write sample.js"
+          prettier_plugins: "not-a-valid-plugin-name"
+          working_directory: "${{ github.workspace }}"
+          github_token: "dummy-token"
+        continue-on-error: true
+
+      - name: Assert action failed due to invalid plugin name
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "Action outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with invalid plugin name, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly rejected invalid plugin name"

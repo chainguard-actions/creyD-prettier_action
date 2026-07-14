@@ -1,0 +1,64 @@
+name: Test no-commit mode formats files without committing
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+      GITHUB_ACTOR: testuser
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a badly-formatted JS file in workspace and record initial commit count
+        run: |
+          # Write a badly-formatted JS file
+          printf "const a=1;const b=2;const c=3\n" > "$GITHUB_WORKSPACE/messy.js"
+          git add "$GITHUB_WORKSPACE/messy.js"
+          git commit -m "add messy js"
+          echo "Initial commit count:"
+          git log --oneline | wc -l
+          echo "File content:"
+          cat "$GITHUB_WORKSPACE/messy.js"
+
+      - name: Record commit count before action
+        id: before
+        run: |
+          COUNT=$(git -C "$GITHUB_WORKSPACE" log --oneline | wc -l | tr -d ' ')
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "Commit count before action: $COUNT"
+
+      - id: action
+        uses: .
+        with:
+          dry: "false"
+          no_commit: "true"
+          prettier_options: "--write messy.js"
+          working_directory: "${{ github.workspace }}"
+          github_token: "dummy-token"
+
+      - name: Assert file was formatted but no new commit was made
+        env:
+          BEFORE: ${{ steps.before.outputs.count }}
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          AFTER=$(git log --oneline | wc -l | tr -d ' ')
+          echo "Commit count before: $BEFORE"
+          echo "Commit count after: $AFTER"
+          if [ "$AFTER" != "$BEFORE" ]; then
+            echo "FAIL: expected no new commit, but commit count changed from $BEFORE to $AFTER"
+            exit 1
+          fi
+          echo "PASS: no new commit was made"
+
+          # Also verify the file was actually formatted (has changes)
+          CHANGED=$(git status -s | wc -l | tr -d ' ')
+          echo "Changed files: $CHANGED"
+          if [ "$CHANGED" -lt "1" ]; then
+            echo "FAIL: expected file to be formatted (have changes), but no changes found"
+            exit 1
+          fi
+          echo "PASS: file was formatted without committing"
+          cat "$GITHUB_WORKSPACE/messy.js"

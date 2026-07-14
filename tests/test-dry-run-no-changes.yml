@@ -1,0 +1,36 @@
+name: Test dry run with already-pretty files
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+      GITHUB_ACTOR: testuser
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a properly formatted JS file in workspace
+        run: |
+          # Write a properly formatted JS file (prettier default style with double quotes and semicolons)
+          printf 'const greeting = "hello";\nconsole.log(greeting);\n' > "$GITHUB_WORKSPACE/clean.js"
+          git add "$GITHUB_WORKSPACE/clean.js"
+          git commit -m "add clean js" || true
+          echo "File content:"
+          cat "$GITHUB_WORKSPACE/clean.js"
+
+      - id: action
+        uses: .
+        with:
+          dry: "true"
+          no_commit: "true"
+          prettier_options: "--write clean.js"
+          working_directory: "${{ github.workspace }}"
+          github_token: "dummy-token"
+
+      - name: Assert action succeeded (no unpretty files)
+        run: |
+          echo "Action completed successfully - no unpretty files detected"
+          echo "PASS"
