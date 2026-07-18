@@ -1,36 +1,34 @@
-name: Test dry run with already-pretty files
+name: Test dry run mode with no changes needed
 on:
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_REF: refs/heads/main
-      GITHUB_EVENT_NAME: push
-      GITHUB_ACTOR: testuser
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create a properly formatted JS file in workspace
+      # Create a well-formatted JS file in the workspace
+      - name: Set up pretty JS file
         run: |
-          # Write a properly formatted JS file (prettier default style with double quotes and semicolons)
-          printf 'const greeting = "hello";\nconsole.log(greeting);\n' > "$GITHUB_WORKSPACE/clean.js"
-          git add "$GITHUB_WORKSPACE/clean.js"
-          git commit -m "add clean js" || true
-          echo "File content:"
-          cat "$GITHUB_WORKSPACE/clean.js"
+          # Write a properly formatted JS file (prettier default style)
+          printf 'const x = 1;\nconst y = 2;\n' > "$GITHUB_WORKSPACE/pretty-dry-test.js"
 
-      - id: action
+      - name: Run prettier action in dry mode on already-pretty files
+        id: action
         uses: .
         with:
+          # --check exits 0 when files are already formatted (no changes needed)
+          # dry=true + no_commit=true: action succeeds even if git status shows untracked files
+          prettier_options: "--check ${{ github.workspace }}/pretty-dry-test.js"
           dry: "true"
           no_commit: "true"
-          prettier_options: "--write clean.js"
-          working_directory: "${{ github.workspace }}"
-          github_token: "dummy-token"
+          clean_node_folder: "true"
 
-      - name: Assert action succeeded (no unpretty files)
+      - name: Assert action succeeded (dry run found no changes)
         run: |
-          echo "Action completed successfully - no unpretty files detected"
-          echo "PASS"
+          echo "PASS: dry run completed - no unpretty files detected"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$GITHUB_WORKSPACE/pretty-dry-test.js"

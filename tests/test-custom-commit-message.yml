@@ -1,0 +1,33 @@
+name: Test custom commit message input
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Create a well-formatted JS file in the workspace
+      - name: Set up pretty JS file
+        run: |
+          printf 'const x = 1;\nconst y = 2;\n' > "$GITHUB_WORKSPACE/commit-msg-test.js"
+
+      - name: Run prettier action with custom commit message and no_commit=true
+        id: action
+        uses: .
+        with:
+          commit_message: "Custom: Auto-formatted code"
+          commit_description: "Ran prettier on all JS files"
+          prettier_options: "--check ${{ github.workspace }}/commit-msg-test.js"
+          dry: "false"
+          no_commit: "true"
+          clean_node_folder: "true"
+
+      - name: Assert action succeeded with custom commit message inputs
+        run: |
+          echo "PASS: action accepted custom commit_message and commit_description inputs"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$GITHUB_WORKSPACE/commit-msg-test.js"

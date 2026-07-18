@@ -45,22 +45,25 @@ cd "$INPUT_WORKING_DIRECTORY"
 
 echo "Installing prettier..."
 
-npm install --silent "prettier@$INPUT_PRETTIER_VERSION"
+# Validate prettier version to prevent injection (allow only alphanumeric, dots, hyphens, and 'latest')
+if ! echo "$INPUT_PRETTIER_VERSION" | grep -Eq '^(latest|[0-9]+\.[0-9]+(\.[0-9]+)?([-+][a-zA-Z0-9._-]*)?)$'; then
+    echo "Invalid prettier version: $INPUT_PRETTIER_VERSION"
+    exit 1
+fi
+npm install --silent "prettier@${INPUT_PRETTIER_VERSION}"
 
 # Install plugins
 if [ -n "$INPUT_PRETTIER_PLUGINS" ]; then
-    VALIDATED_PLUGINS=()
-    read -ra PLUGINS_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
-    for plugin in "${PLUGINS_ARRAY[@]}"; do
+    read -ra PRETTIER_PLUGINS_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
+    for plugin in "${PRETTIER_PLUGINS_ARRAY[@]}"; do
         echo "Checking plugin: $plugin"
         # check regex against @prettier/xyz
         if ! echo "$plugin" | grep -Eq '(@prettier\/plugin-|(@[a-z\-]+\/)?prettier-plugin-){1}([a-z\-]+)'; then
             echo "$plugin does not seem to be a valid @prettier/plugin-x plugin. Exiting."
             exit 1
         fi
-        VALIDATED_PLUGINS+=("$plugin")
     done
-    npm install --silent "${VALIDATED_PLUGINS[@]}"
+    npm install --silent "${PRETTIER_PLUGINS_ARRAY[@]}"
 fi
 )
 
@@ -69,7 +72,7 @@ echo "Prettifying files..."
 echo "Files:"
 read -ra PRETTIER_OPTIONS_ARRAY <<< "$INPUT_PRETTIER_OPTIONS"
 prettier "${PRETTIER_OPTIONS_ARRAY[@]}" \
-  || { PRETTIER_RESULT=$?; SAFE_OPTS=$(printf '%s' "$INPUT_PRETTIER_OPTIONS" | tr -d '\n\r'); echo "Problem running prettier with $SAFE_OPTS" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+  || { PRETTIER_RESULT=$?; echo "Problem running prettier with $INPUT_PRETTIER_OPTIONS"; exit 1; } >> "$GITHUB_STEP_SUMMARY"
 
 echo "Prettier result: $PRETTIER_RESULT"
 
@@ -92,15 +95,14 @@ fi
 # If running under only_changed, reset every modified file that wasn't also modified in the last commit
 # This allows only_changed and dry to work together, and simplified the non-dry logic below
 if [ "$INPUT_ONLY_CHANGED" = "true" ] || [ "$INPUT_ONLY_CHANGED_PR" = "true" ] ; then
-  SAFE_BASE_REF=$(printf '%s' "$GITHUB_BASE_REF" | tr -cd 'A-Za-z0-9._/-')
-  BASE_BRANCH="origin/$SAFE_BASE_REF"
+  BASE_BRANCH=origin/$GITHUB_BASE_REF
   if [ "$INPUT_ONLY_CHANGED" = "true" ]; then
     BASE_BRANCH=HEAD~1
   fi
 
   echo "Resetting changes, removing changes to files not changed since $BASE_BRANCH"
   # list of all files changed in the previous commit
-  git diff --name-only HEAD "$BASE_BRANCH" > /tmp/prev.txt
+  git diff --name-only HEAD $BASE_BRANCH > /tmp/prev.txt
   # list of all files with outstanding changes
   git diff --name-only HEAD > /tmp/cur.txt
 
@@ -151,11 +153,12 @@ if _git_changed; then
       else
           git commit -m "$INPUT_COMMIT_MESSAGE" --author="$GITHUB_ACTOR <$GITHUB_ACTOR@users.noreply.github.com>" ${INPUT_COMMIT_OPTIONS:+"$INPUT_COMMIT_OPTIONS"} || echo "No files added to commit"
       fi
-      PUSH_OPTS=()
+      # Build push options array to avoid unquoted variable expansion
+      push_args=()
       if [ -n "${INPUT_PUSH_OPTIONS:-}" ]; then
-        read -ra PUSH_OPTS <<< "$INPUT_PUSH_OPTIONS"
+          read -ra push_args <<< "$INPUT_PUSH_OPTIONS"
       fi
-      git push origin "${PUSH_OPTS[@]+"${PUSH_OPTS[@]}"}"
+      git push origin "${push_args[@]+"${push_args[@]}"}"
     fi
     echo "Changes pushed successfully."
   fi

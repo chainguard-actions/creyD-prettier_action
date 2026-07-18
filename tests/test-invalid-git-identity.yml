@@ -1,43 +1,45 @@
-name: Test invalid git_identity value causes failure
+name: Test invalid git_identity value rejection
 on:
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_REF: refs/heads/main
-      GITHUB_EVENT_NAME: push
-      GITHUB_ACTOR: testuser
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create a badly-formatted JS file in workspace
+      # Create an UNPRETTY JS file so prettier --write will change it,
+      # triggering _git_setup which validates git_identity
+      - name: Set up unpretty JS file
         run: |
-          # Write a badly-formatted JS file to trigger git changes (so _git_setup is called)
-          printf "const a=1;const b=2\n" > "$GITHUB_WORKSPACE/badid.js"
-          git add "$GITHUB_WORKSPACE/badid.js"
-          git commit -m "add badid js" || true
-          echo "File created:"
-          cat "$GITHUB_WORKSPACE/badid.js"
+          printf "const x=1\nconst y=2\n" > "$GITHUB_WORKSPACE/badidentity-test.js"
 
-      - id: action
+      - name: Run prettier action with invalid git_identity (should fail)
+        id: action
         uses: .
         with:
-          prettier_options: "--write badid.js"
+          # --write will reformat the unpretty file, causing git changes
+          # then _git_setup is called which checks git_identity and exits 1
+          prettier_options: "--write ${{ github.workspace }}/badidentity-test.js"
+          dry: "false"
           no_commit: "false"
           git_identity: "invalid-identity"
-          working_directory: "${{ github.workspace }}"
-          github_token: "dummy-token"
+          clean_node_folder: "true"
         continue-on-error: true
 
       - name: Assert action failed due to invalid git_identity
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
-          echo "Action outcome: $OUTCOME"
+          echo "outcome: $OUTCOME"
           if [ "$OUTCOME" != "failure" ]; then
             echo "FAIL: expected action to fail with invalid git_identity, but got: $OUTCOME"
             exit 1
           fi
           echo "PASS: action correctly rejected invalid git_identity value"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          git checkout -- "$GITHUB_WORKSPACE/badidentity-test.js" 2>/dev/null || true
+          rm -f "$GITHUB_WORKSPACE/badidentity-test.js"

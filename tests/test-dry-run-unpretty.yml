@@ -1,0 +1,42 @@
+name: Test dry run detects unpretty files
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Create an UNPRETTY JS file in the workspace
+      - name: Set up unpretty JS file
+        run: |
+          # Write a badly formatted JS file (no semicolons, inconsistent spacing)
+          printf "const x=1\nconst y=2\n" > "$GITHUB_WORKSPACE/unpretty-test.js"
+
+      - name: Run prettier action in dry mode on unpretty files (should fail)
+        id: action
+        uses: .
+        with:
+          # --write will reformat the file, causing git changes
+          # dry=true means it will exit 1 when changes are detected
+          prettier_options: "--write ${{ github.workspace }}/unpretty-test.js"
+          dry: "true"
+          no_commit: "false"
+          clean_node_folder: "true"
+        continue-on-error: true
+
+      - name: Assert action failed (dry run detected unpretty files)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when dry run detects unpretty files, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: dry run correctly detected unpretty files and exited with error"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$GITHUB_WORKSPACE/unpretty-test.js"

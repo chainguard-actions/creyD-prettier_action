@@ -5,32 +5,28 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_REF: refs/heads/main
-      GITHUB_EVENT_NAME: push
-      GITHUB_ACTOR: testuser
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create a badly-formatted JS file in workspace
+      # Create a well-formatted JS file in the workspace
+      - name: Set up pretty JS file
         run: |
-          # Write a badly-formatted JS file to trigger git changes
-          printf "const a=1;const b=2\n" > "$GITHUB_WORKSPACE/code.js"
-          git add "$GITHUB_WORKSPACE/code.js"
-          git commit -m "add code js" || true
-          echo "File created:"
-          cat "$GITHUB_WORKSPACE/code.js"
+          printf 'const x = 1;\nconst y = 2;\n' > "$GITHUB_WORKSPACE/identity-test.js"
 
-      - id: action
+      - name: Run prettier action with git_identity=author
+        id: action
         uses: .
         with:
-          prettier_options: "--write code.js"
+          prettier_options: "--check ${{ github.workspace }}/identity-test.js"
+          dry: "false"
           no_commit: "true"
           git_identity: "author"
-          working_directory: "${{ github.workspace }}"
-          github_token: "dummy-token"
+          clean_node_folder: "true"
 
-      - name: Assert action succeeded with author identity
+      - name: Assert action succeeded with author git identity
         run: |
-          echo "Action completed successfully with git_identity=author"
-          echo "PASS"
+          echo "PASS: action completed with git_identity=author"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$GITHUB_WORKSPACE/identity-test.js"

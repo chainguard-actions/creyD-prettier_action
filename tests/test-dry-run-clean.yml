@@ -1,0 +1,34 @@
+name: Test dry run with already-pretty files
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Create a well-formatted JS file in the workspace
+      - name: Set up pretty JS file
+        run: |
+          # Write a properly formatted JS file (prettier default style: double quotes, semicolons)
+          printf 'const x = 1;\nconst y = 2;\n' > "$GITHUB_WORKSPACE/pretty-test.js"
+
+      - name: Run prettier action with --check on clean files
+        id: action
+        uses: .
+        with:
+          # --check exits 0 if files are already formatted, 1 if not
+          # Use absolute path via expression (not shell variable)
+          prettier_options: "--check ${{ github.workspace }}/pretty-test.js"
+          dry: "false"
+          no_commit: "true"
+          clean_node_folder: "true"
+
+      - name: Assert action succeeded
+        run: |
+          echo "PASS: action completed without error - files are already pretty"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$GITHUB_WORKSPACE/pretty-test.js"

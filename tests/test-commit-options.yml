@@ -1,40 +1,33 @@
 name: Test commit_options input
 on:
   workflow_dispatch:
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_REF: refs/heads/main
-      GITHUB_EVENT_NAME: push
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Create a well-formatted JS file
+
+      # Create a well-formatted JS file in the workspace
+      - name: Set up pretty JS file
         run: |
-          cat > /tmp/test-file.js << 'EOF'
-          const x = 1;
-          EOF
-          cp /tmp/test-file.js "$GITHUB_WORKSPACE/test-commit-options.js"
-      - id: action
+          # Write a properly formatted JS file (prettier default style: double quotes, semicolons)
+          printf 'const x = 1;\nconst y = 2;\n' > "$GITHUB_WORKSPACE/commit-options-test.js"
+
+      - name: Run prettier action with commit_options set
+        id: action
         uses: .
         with:
-          dry: "true"
-          prettier_options: "--check **/*.js"
+          prettier_options: "--write ${{ github.workspace }}/commit-options-test.js"
           commit_options: "--no-verify"
-          prettier_version: "latest"
-        continue-on-error: true
-      - name: Assert action ran with commit_options input
+          dry: "false"
+          no_commit: "true"
+          clean_node_folder: "true"
+
+      - name: Assert action succeeded
         run: |
-          echo "Action completed (dry mode with commit_options set)"
-          echo "outcome: ${{ steps.action.outcome }}"
-          # In dry mode, the action checks formatting but does not commit.
-          # We just verify the action ran (not a setup/infrastructure failure).
-          # A 'failure' outcome here means prettier found unformatted files, which is acceptable.
-          if [ "${{ steps.action.outcome }}" = "skipped" ]; then
-            echo "FAIL: action was skipped unexpectedly"
-            exit 1
-          fi
-          echo "PASS: action ran with commit_options input"
+          echo "PASS: action completed with commit_options set"
+
       - name: Cleanup
         if: always()
-        run: rm -f "$GITHUB_WORKSPACE/test-commit-options.js"
+        run: rm -f "$GITHUB_WORKSPACE/commit-options-test.js"
