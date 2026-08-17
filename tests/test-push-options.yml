@@ -1,0 +1,42 @@
+name: Test push_options input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up git config
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "Test User"
+
+      - name: Create a well-formatted JS file
+        run: |
+          npm install -g prettier
+          cat > test-push-opts.js << 'EOF'
+          const a = 1;
+          const b = 2;
+          EOF
+          prettier --write test-push-opts.js
+          git add test-push-opts.js
+          git commit -m "Add formatted JS file"
+
+      - id: action
+        uses: .
+        with:
+          dry: "true"
+          no_commit: "true"
+          push_options: "--force-with-lease"
+          prettier_options: "--check test-push-opts.js"
+          working_directory: ${{ github.workspace }}
+          github_token: ${{ github.token }}
+
+      - name: Assert action succeeded with push_options
+        run: |
+          echo "Action completed successfully with push_options=--force-with-lease"
+          echo "PASS"

@@ -49,10 +49,9 @@ npm install --silent "prettier@$INPUT_PRETTIER_VERSION"
 
 # Install plugins
 if [ -n "$INPUT_PRETTIER_PLUGINS" ]; then
-    # Split the space-separated plugin list into an array safely
-    read -ra PRETTIER_PLUGINS_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
     if [ "$INPUT_ALLOW_OTHER_PLUGINS" != "true" ]; then
-        for plugin in "${PRETTIER_PLUGINS_ARRAY[@]}"; do
+        read -ra _PLUGINS_CHECK_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
+        for plugin in "${_PLUGINS_CHECK_ARRAY[@]}"; do
             echo "Checking plugin: $plugin"
             # check regex against @prettier/xyz
             if ! echo "$plugin" | grep -Eq '(@prettier\/plugin-|(@[a-z\-]+\/)?prettier-plugin-){1}([a-z\-]+)'; then
@@ -61,6 +60,7 @@ if [ -n "$INPUT_PRETTIER_PLUGINS" ]; then
             fi
         done
     fi
+    read -ra PRETTIER_PLUGINS_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
     npm install --silent "${PRETTIER_PLUGINS_ARRAY[@]}"
 fi
 )
@@ -68,10 +68,9 @@ fi
 PRETTIER_RESULT=0
 echo "Prettifying files..."
 echo "Files:"
-# Split options into an array to prevent shell metacharacter injection
 read -ra PRETTIER_OPTIONS_ARRAY <<< "$INPUT_PRETTIER_OPTIONS"
 prettier "${PRETTIER_OPTIONS_ARRAY[@]}" \
-  || { PRETTIER_RESULT=$?; echo "Problem running prettier with $INPUT_PRETTIER_OPTIONS"; exit 1; } >> "$GITHUB_STEP_SUMMARY"
+  || { PRETTIER_RESULT=$?; echo "Problem running prettier with $INPUT_PRETTIER_OPTIONS"; exit 1; } >> $GITHUB_STEP_SUMMARY
 
 echo "Prettier result: $PRETTIER_RESULT"
 
@@ -152,9 +151,9 @@ if _git_changed; then
       else
           git commit -m "$INPUT_COMMIT_MESSAGE" --author="$GITHUB_ACTOR <$GITHUB_ACTOR@users.noreply.github.com>" ${INPUT_COMMIT_OPTIONS:+"$INPUT_COMMIT_OPTIONS"} || echo "No files added to commit"
       fi
-      # Split push options into an array to prevent shell metacharacter injection
-      read -ra PUSH_OPTIONS_ARRAY <<< "${INPUT_PUSH_OPTIONS:-}"
-      git push origin "${PUSH_OPTIONS_ARRAY[@]}"
+      push_args=()
+      [ -n "$INPUT_PUSH_OPTIONS" ] && read -ra push_args <<< "$INPUT_PUSH_OPTIONS"
+      git push origin "${push_args[@]+"${push_args[@]}"}"
     fi
     echo "Changes pushed successfully."
   fi

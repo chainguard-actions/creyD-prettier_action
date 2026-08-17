@@ -1,0 +1,30 @@
+name: Test invalid plugin rejection
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run prettier action with an invalid plugin name (should fail)
+        id: action
+        uses: .
+        with:
+          prettier_options: "--write ${{ github.workspace }}/tests/fixtures/pretty.js"
+          no_commit: "true"
+          dry: "false"
+          prettier_plugins: "not-a-prettier-plugin"
+          allow_other_plugins: "false"
+        continue-on-error: true
+
+      - name: Assert action failed due to invalid plugin
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with invalid plugin name, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly rejected invalid plugin name"

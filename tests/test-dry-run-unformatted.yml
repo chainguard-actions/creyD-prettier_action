@@ -1,0 +1,33 @@
+name: Test dry run detects unformatted files
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up git identity
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Run prettier action in dry mode on unformatted file (should fail)
+        id: action
+        uses: .
+        with:
+          dry: "true"
+          no_commit: "false"
+          prettier_options: "--write ${{ github.workspace }}/tests/fixtures/ugly.js"
+        continue-on-error: true
+
+      - name: Assert action failed because files are unformatted
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when dry=true and files are unformatted, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly detected unformatted files in dry mode"

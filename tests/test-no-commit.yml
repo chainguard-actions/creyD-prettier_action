@@ -1,0 +1,25 @@
+name: Test no_commit mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up git identity
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Run prettier action with no_commit=true on already-formatted file
+        id: action
+        uses: .
+        with:
+          prettier_options: "--write ${{ github.workspace }}/tests/fixtures/pretty.js"
+          no_commit: "true"
+          dry: "false"
+
+      - name: Assert action completed successfully without committing
+        run: |
+          echo "PASS: action completed in no_commit mode without error"
