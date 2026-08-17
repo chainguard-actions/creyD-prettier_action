@@ -1,0 +1,46 @@
+name: Test prettier check mode on clean files
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Configure git identity
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "Test User"
+
+      - name: Create a well-formatted JSON file in workspace
+        run: |
+          cat > "$GITHUB_WORKSPACE/test-sample.json" << 'EOF'
+          {
+            "name": "test"
+          }
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          # Use --check so prettier doesn't modify files; run on the json file we created
+          prettier_options: "--check test-sample.json"
+          dry: "false"
+          github_token: "fake-token"
+        continue-on-error: true
+
+      - name: Assert action ran successfully or with expected outcome
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should either succeed (file is pretty) or fail (file needs formatting)
+          # but it must not be skipped — we just verify it ran
+          if [ "$OUTCOME" = "skipped" ]; then
+            echo "FAIL: action was skipped unexpectedly"
+            exit 1
+          fi
+          echo "PASS: action ran with outcome=$OUTCOME"

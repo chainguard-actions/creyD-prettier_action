@@ -1,0 +1,53 @@
+name: Test dry run with already-pretty files
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Pre-install prettier globally
+        run: npm install -g prettier
+
+      - name: Configure git and set up npm artifact handling
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Action"
+          git config commit.gpgsign false
+          # Create a tracked package-lock.json so the action can restore it via git checkout
+          echo '{"lockfileVersion":3,"name":"prettier-action-test","version":"1.0.0","packages":{}}' > package-lock.json
+          # Ignore npm artifacts that the action creates
+          cat >> .gitignore << 'EOF'
+          node_modules/
+          package.json
+          action/node_modules/
+          action/package-lock.json
+          action/package.json
+          tests/fixtures/subdir/node_modules/
+          tests/fixtures/subdir/package-lock.json
+          tests/fixtures/subdir/package.json
+          EOF
+          git add package-lock.json .gitignore
+          git commit -m "temp: set up for prettier action test"
+
+      - name: Run prettier action in dry mode on already-pretty file
+        id: action
+        uses: .
+        with:
+          dry: "true"
+          prettier_options: "--check tests/fixtures/js/pretty.js"
+          github_token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action succeeded (no unpretty files)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action succeeded as expected for already-pretty files"
+          else
+            echo "FAIL: expected success but got $OUTCOME"
+            exit 1
+          fi

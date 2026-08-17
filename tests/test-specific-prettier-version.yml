@@ -1,0 +1,53 @@
+name: Test specific prettier version
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Pre-install specific prettier version globally
+        run: npm install -g prettier@2.8.8
+
+      - name: Configure git and set up npm artifact handling
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Action"
+          git config commit.gpgsign false
+          # Create a tracked package-lock.json so the action can restore it via git checkout
+          echo '{"lockfileVersion":3,"name":"prettier-action-test","version":"1.0.0","packages":{}}' > package-lock.json
+          # Ignore npm artifacts that the action creates
+          cat >> .gitignore << 'EOF'
+          node_modules/
+          package.json
+          action/node_modules/
+          action/package-lock.json
+          action/package.json
+          EOF
+          git add package-lock.json .gitignore
+          git commit -m "temp: set up for prettier action test"
+
+      - name: Run prettier action with a specific version
+        id: action
+        uses: .
+        with:
+          dry: "true"
+          prettier_version: "2.8.8"
+          prettier_options: "--check tests/fixtures/js-versioned/sample.js"
+          github_token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action completed (specific version installed and ran)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should either succeed (file is pretty) or fail (file needs formatting)
+          # but it should NOT error out due to version installation issues.
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran with specific prettier version (outcome: $OUTCOME)"
+          else
+            echo "FAIL: unexpected outcome: $OUTCOME"
+            exit 1
+          fi

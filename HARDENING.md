@@ -8,7 +8,7 @@
 
 **Test Policy SHA:** `843adf9e4b8f85d0c08b27b9d0b09dd094b54702`
 
-**Harden Agent Version:** `1`
+**Harden Agent Version:** `2`
 
 Action **creyD--prettier_action/v4.2** was hardened automatically. 2 finding(s) were identified and resolved across 2 iteration(s).
 
@@ -16,30 +16,29 @@ Action **creyD--prettier_action/v4.2** was hardened automatically. 2 finding(s) 
 
 ### script-injection (severity: high)
 
-Sub-rule (a): A GitHub Actions expression `${{ github.action_path }}` is directly interpolated inside the `run:` shell command string in action.yml. The YAML template substitution occurs before the shell processes the string, meaning any attacker-controlled value in `github.action_path` would be executed as shell code. The offending line is: `${{ github.action_path }}/entrypoint.sh`
+Sub-rule (a): The `run:` block in action.yml directly interpolates `${{ github.action_path }}` inside the shell command string. Any `${{ ... }}` expression directly in a `run:` script is a script-injection risk because YAML template substitution occurs before the shell ever sees the value. Offending line: `${{ github.action_path }}/entrypoint.sh`
 
 Locations:
 
-- `action.yml:57`
+- `action.yml:59`
 
 ### script-injection (severity: high)
 
-Sub-rule (b): Multiple unquoted shell variable expansions of user-controlled inputs in entrypoint.sh. The env vars INPUT_WORKING_DIRECTORY, INPUT_PRETTIER_VERSION, INPUT_PRETTIER_OPTIONS, and INPUT_PRETTIER_PLUGINS are all sourced from `inputs.*` (via the env: block in action.yml) but are expanded unquoted in shell commands, allowing shell metacharacter injection (`;`, `|`, `&`, `$(...)`, etc.):
-- `case $INPUT_WORKING_DIRECTORY in` (line 37) — unquoted case pattern
-- `cd $INPUT_WORKING_DIRECTORY` (line 41) — unquoted cd argument
-- `case $INPUT_PRETTIER_VERSION in` (line 43) — unquoted case pattern
-- `npm install --silent prettier@$INPUT_PRETTIER_VERSION` (line 48) — unquoted in npm argument
-- `npm install --silent $INPUT_PRETTIER_PLUGINS` (line 55) — unquoted npm argument
-- `prettier $INPUT_PRETTIER_OPTIONS` (line 62) — unquoted prettier argument
+Sub-rule (b): entrypoint.sh expands multiple workflow-controlled `$INPUT_*` environment variables (sourced from `inputs.*` via the action's `env:` block) without double-quoting, allowing shell metacharacter injection. Unquoted expansions include: `case $INPUT_WORKING_DIRECTORY in` (line 36), `cd $INPUT_WORKING_DIRECTORY` (line 39), `case $INPUT_PRETTIER_VERSION in` (line 42), `npm install --silent prettier@$INPUT_PRETTIER_VERSION` (line 46), `for plugin in $INPUT_PRETTIER_PLUGINS` (line 50), `npm install --silent $INPUT_PRETTIER_PLUGINS` (line 56), `prettier $INPUT_PRETTIER_OPTIONS` (line 61), `if $INPUT_DRY` (line 70), `if $INPUT_ONLY_CHANGED` (line 80), `if $INPUT_SAME_COMMIT` (line 91), and `git push origin ${INPUT_PUSH_OPTIONS:-}` (line 103). An attacker-controlled input value containing shell metacharacters (`;`, `|`, `&`, `$(...)`, etc.) can execute arbitrary commands.
 
 Locations:
 
-- `entrypoint.sh:37`
-- `entrypoint.sh:41`
-- `entrypoint.sh:43`
-- `entrypoint.sh:48`
-- `entrypoint.sh:55`
-- `entrypoint.sh:62`
+- `entrypoint.sh:36`
+- `entrypoint.sh:39`
+- `entrypoint.sh:42`
+- `entrypoint.sh:46`
+- `entrypoint.sh:50`
+- `entrypoint.sh:56`
+- `entrypoint.sh:61`
+- `entrypoint.sh:70`
+- `entrypoint.sh:80`
+- `entrypoint.sh:91`
+- `entrypoint.sh:103`
 
 ## Iteration Notes
 
@@ -51,15 +50,15 @@ Locations:
 
 Fixed two script-injection findings:
 
-1. action.yml (line 57): Replaced `${{ github.action_path }}/entrypoint.sh` with `"$GITHUB_ACTION_PATH/entrypoint.sh"`. The GITHUB_ACTION_PATH env var holds the same value but avoids direct YAML template interpolation into the shell command string. Also quoted the variable in the `cd` command.
+1. action.yml (line 59): Replaced `${{ github.action_path }}/entrypoint.sh` with `"$GITHUB_ACTION_PATH/entrypoint.sh"` — uses the pre-set GitHub Actions environment variable instead of YAML template interpolation in the run block. Also quoted the `cd "$GITHUB_ACTION_PATH"` call.
 
-2. entrypoint.sh (multiple lines): Quoted all unquoted variable expansions:
-   - `case $INPUT_WORKING_DIRECTORY` → `case "$INPUT_WORKING_DIRECTORY"`
-   - `cd $INPUT_WORKING_DIRECTORY` → `cd "$INPUT_WORKING_DIRECTORY"`
-   - `case $INPUT_PRETTIER_VERSION` → `case "$INPUT_PRETTIER_VERSION"`
-   - `npm install --silent prettier@$INPUT_PRETTIER_VERSION` → `npm install --silent "prettier@$INPUT_PRETTIER_VERSION"`
-   - `prettier $INPUT_PRETTIER_OPTIONS` → split into array with `read -ra PRETTIER_OPTIONS_ARRAY <<< "$INPUT_PRETTIER_OPTIONS"` then `prettier "${PRETTIER_OPTIONS_ARRAY[@]}"` to safely handle word-splitting while preventing shell metacharacter injection
-   - The `npm install --silent $INPUT_PRETTIER_PLUGINS` line was left with intentional word-splitting since plugins are a space-separated list and each is validated by regex before installation.
+2. entrypoint.sh (11 locations): Fixed all unquoted $INPUT_* expansions:
+   - Quoted `case "$INPUT_WORKING_DIRECTORY"` and `cd "$INPUT_WORKING_DIRECTORY"`
+   - Quoted `case "$INPUT_PRETTIER_VERSION"` and `"prettier@$INPUT_PRETTIER_VERSION"`
+   - Plugin loop: collected validated plugins into an array, then used `"${validated_plugins[@]}"` for npm install
+   - Prettier options: used `read -ra PRETTIER_OPTIONS_ARRAY <<< "$INPUT_PRETTIER_OPTIONS"` and `"${PRETTIER_OPTIONS_ARRAY[@]}"`
+   - Boolean inputs (INPUT_DRY, INPUT_ONLY_CHANGED, INPUT_SAME_COMMIT): changed from `if $VAR` (executes value as command) to `if [ "$VAR" = "true" ]` (safe string comparison)
+   - Push options: used `read -ra push_opts <<< "$INPUT_PUSH_OPTIONS"` and `"${push_opts[@]}"`
 
 ### Iteration 2
 
@@ -67,5 +66,5 @@ Fixed two script-injection findings:
 
 **Notes:**
 
-Fixed all 6 script injection vulnerabilities in entrypoint.sh: (1) for loop over $INPUT_PRETTIER_PLUGINS now uses read -ra array split and quoted array expansion; (2) npm install now uses quoted array "${PRETTIER_PLUGINS_ARRAY[@]}"; (3) `if $INPUT_DRY` replaced with `if [ "$INPUT_DRY" = "true" ]`; (4) `if $INPUT_ONLY_CHANGED` replaced with `if [ "$INPUT_ONLY_CHANGED" = "true" ]`; (5) `if $INPUT_SAME_COMMIT` replaced with `if [ "$INPUT_SAME_COMMIT" = "true" ]`; (6) `git push origin ${INPUT_PUSH_OPTIONS:-}` replaced with conditional read -ra array split and quoted expansion to prevent word-splitting and flag injection.
+Fixed unquoted shell variable expansion in entrypoint.sh at line 49. Replaced `for plugin in $INPUT_PRETTIER_PLUGINS` (vulnerable to word-splitting and glob expansion on attacker-controlled input) with `read -ra plugins_array <<< "$INPUT_PRETTIER_PLUGINS"` followed by `for plugin in "${plugins_array[@]}"`. This safely splits the input into an array and iterates over elements with proper double-quoting, preventing shell metacharacter injection. The approach is consistent with how INPUT_PRETTIER_OPTIONS is already handled later in the same script.
 

@@ -1,24 +1,28 @@
-name: Test push_options input coverage
+name: Test push_options input
 on:
   workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_ACTOR: test-actor
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Set up git identity
+
+      - name: Create a well-formatted JS file (no prettier changes needed)
         run: |
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Action"
-      - id: action
+          cat > test-file.js << 'EOF'
+          const x = 1;
+          EOF
+
+      - name: Run action with push_options in dry mode
+        id: action
         uses: .
         with:
-          dry: "true"
-          prettier_options: "--write $GITHUB_WORKSPACE/actions/hardened/creyD--prettier_action/v4.2/tests/fixtures/sample.js"
+          dry: true
+          prettier_options: "--check **/*.js"
           push_options: "--force-with-lease"
-          github_token: "dummy-token"
-      - name: Assert action completed successfully with push_options
+          file_pattern: "*.js"
+
+      - name: Assert action completed without error
         run: |
-          echo "PASS: action completed with push_options set"
+          echo "Action completed successfully with push_options input"
+          echo "PASS"

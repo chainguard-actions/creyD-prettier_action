@@ -56,22 +56,25 @@ esac
 
 # Install plugins
 if [ -n "$INPUT_PRETTIER_PLUGINS" ]; then
-    read -ra PRETTIER_PLUGINS_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
-    for plugin in "${PRETTIER_PLUGINS_ARRAY[@]}"; do
+    validated_plugins=()
+    read -ra plugins_array <<< "$INPUT_PRETTIER_PLUGINS"
+    for plugin in "${plugins_array[@]}"; do
         echo "Checking plugin: $plugin"
         # check regex against @prettier/xyz
         if ! echo "$plugin" | grep -Eq '(@prettier\/plugin-|(@[a-z\-]+\/)?prettier-plugin-){1}([a-z\-]+)'; then
             echo "$plugin does not seem to be a valid @prettier/plugin-x plugin. Exiting."
             exit 1
         fi
+        validated_plugins+=("$plugin")
     done
-    npm install --silent "${PRETTIER_PLUGINS_ARRAY[@]}"
+    npm install --silent "${validated_plugins[@]}"
 fi
 )
 
 PRETTIER_RESULT=0
 echo "Prettifying files..."
 echo "Files:"
+# shellcheck disable=SC2086
 read -ra PRETTIER_OPTIONS_ARRAY <<< "$INPUT_PRETTIER_OPTIONS"
 prettier "${PRETTIER_OPTIONS_ARRAY[@]}" \
   || { PRETTIER_RESULT=$?; echo "Problem running prettier with $INPUT_PRETTIER_OPTIONS"; exit 1; }
@@ -127,12 +130,11 @@ if _git_changed; then
       else
           git commit -m "$INPUT_COMMIT_MESSAGE" --author="$GITHUB_ACTOR <$GITHUB_ACTOR@users.noreply.github.com>" ${INPUT_COMMIT_OPTIONS:+"$INPUT_COMMIT_OPTIONS"} || echo "No files added to commit"
       fi
+      push_opts=()
       if [ -n "${INPUT_PUSH_OPTIONS:-}" ]; then
-        read -ra PUSH_OPTIONS_ARRAY <<< "$INPUT_PUSH_OPTIONS"
-        git push origin "${PUSH_OPTIONS_ARRAY[@]}"
-      else
-        git push origin
+        read -ra push_opts <<< "$INPUT_PUSH_OPTIONS"
       fi
+      git push origin "${push_opts[@]}"
     fi
     echo "Changes pushed successfully."
   fi
