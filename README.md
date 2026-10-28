@@ -6,12 +6,12 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 ## Versions
 
-| Version | Tag | Upstream commit |
-|---------|-----|-----------------|
-| v4.2 | [`v4.2`](https://github.com/chainguard-actions/creyD-prettier_action/tree/v4.2) | [`6602189`](https://github.com/creyD/prettier_action/commit/6602189cf8bac1ce73ffe601925f6127ab7f21ac) |
-| v4.4 | [`v4.4`](https://github.com/chainguard-actions/creyD-prettier_action/tree/v4.4) | [`d7f059e`](https://github.com/creyD/prettier_action/commit/d7f059e30c024b1eeec2219285013faf5147644c) |
-| v4.5 | [`v4.5`](https://github.com/chainguard-actions/creyD-prettier_action/tree/v4.5) | [`5e54c68`](https://github.com/creyD/prettier_action/commit/5e54c689403b43aac746a34c07656fd4cb71d822) |
-| v4.6 | [`v4.6`](https://github.com/chainguard-actions/creyD-prettier_action/tree/v4.6) | [`8c18391`](https://github.com/creyD/prettier_action/commit/8c18391fdc98ed0d884c6345f03975edac71b8f0) |
+| Version | Tag | Upstream commit | Hardening report |
+|---------|-----|-----------------|------------------|
+| v4.2 | [`v4.2`](https://github.com/chainguard-actions/creyD-prettier_action/tree/v4.2) | [`6602189`](https://github.com/creyD/prettier_action/commit/6602189cf8bac1ce73ffe601925f6127ab7f21ac) | [`HARDENING.md`](https://github.com/chainguard-actions/creyD-prettier_action/blob/v4.2/HARDENING.md) |
+| v4.4 | [`v4.4`](https://github.com/chainguard-actions/creyD-prettier_action/tree/v4.4) | [`d7f059e`](https://github.com/creyD/prettier_action/commit/d7f059e30c024b1eeec2219285013faf5147644c) | [`HARDENING.md`](https://github.com/chainguard-actions/creyD-prettier_action/blob/v4.4/HARDENING.md) |
+| v4.5 | [`v4.5`](https://github.com/chainguard-actions/creyD-prettier_action/tree/v4.5) | [`5e54c68`](https://github.com/creyD/prettier_action/commit/5e54c689403b43aac746a34c07656fd4cb71d822) | [`HARDENING.md`](https://github.com/chainguard-actions/creyD-prettier_action/blob/v4.5/HARDENING.md) |
+| v4.6 | [`v4.6`](https://github.com/chainguard-actions/creyD-prettier_action/tree/v4.6) | [`8c18391`](https://github.com/creyD/prettier_action/commit/8c18391fdc98ed0d884c6345f03975edac71b8f0) | [`HARDENING.md`](https://github.com/chainguard-actions/creyD-prettier_action/blob/v4.6/HARDENING.md) |
 
 ## Privacy
 
