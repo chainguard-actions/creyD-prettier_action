@@ -30,6 +30,28 @@ EOF
     fi;
 }
 
+# Splits $1 on whitespace (like an unquoted $VAR) into the SPLIT_RESULT array,
+# expanding glob patterns the way the shell did (globstar enabled), without evaluating anything.
+_split_words() {
+    SPLIT_RESULT=()
+    local _tokens=() _t _m _line
+    [ -n "$1" ] || return 0
+    read -r -d '' -a _tokens <<< "$1" || true
+    for _t in ${_tokens[@]+"${_tokens[@]}"}; do
+        if [[ "$_t" == *[*?[]* ]]; then
+            _m=()
+            while IFS= read -r _line; do _m+=("$_line"); done < <(compgen -G "$_t" || true)
+            if [ "${#_m[@]}" -gt 0 ]; then
+                SPLIT_RESULT+=("${_m[@]}")
+            else
+                SPLIT_RESULT+=("$_t")
+            fi
+        else
+            SPLIT_RESULT+=("$_t")
+        fi
+    done
+}
+
 # Checks if any files are changed
 _git_changed() {
     [[ -n "$(git status -s)" ]]
@@ -49,9 +71,10 @@ npm install --silent "prettier@$INPUT_PRETTIER_VERSION"
 
 # Install plugins
 if [ -n "$INPUT_PRETTIER_PLUGINS" ]; then
+    _split_words "$INPUT_PRETTIER_PLUGINS"
+    PRETTIER_PLUGINS_ARRAY=(${SPLIT_RESULT[@]+"${SPLIT_RESULT[@]}"})
     if [ "$INPUT_ALLOW_OTHER_PLUGINS" != "true" ]; then
-        read -ra _PLUGINS_CHECK_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
-        for plugin in "${_PLUGINS_CHECK_ARRAY[@]}"; do
+        for plugin in ${PRETTIER_PLUGINS_ARRAY[@]+"${PRETTIER_PLUGINS_ARRAY[@]}"}; do
             echo "Checking plugin: $plugin"
             # check regex against @prettier/xyz
             if ! echo "$plugin" | grep -Eq '(@prettier\/plugin-|(@[a-z\-]+\/)?prettier-plugin-){1}([a-z\-]+)'; then
@@ -60,16 +83,16 @@ if [ -n "$INPUT_PRETTIER_PLUGINS" ]; then
             fi
         done
     fi
-    read -ra PRETTIER_PLUGINS_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
-    npm install --silent "${PRETTIER_PLUGINS_ARRAY[@]}"
+    npm install --silent ${PRETTIER_PLUGINS_ARRAY[@]+"${PRETTIER_PLUGINS_ARRAY[@]}"}
 fi
 )
 
 PRETTIER_RESULT=0
 echo "Prettifying files..."
 echo "Files:"
-read -ra PRETTIER_OPTIONS_ARRAY <<< "$INPUT_PRETTIER_OPTIONS"
-prettier "${PRETTIER_OPTIONS_ARRAY[@]}" \
+_split_words "$INPUT_PRETTIER_OPTIONS"
+PRETTIER_OPTIONS_ARRAY=(${SPLIT_RESULT[@]+"${SPLIT_RESULT[@]}"})
+prettier ${PRETTIER_OPTIONS_ARRAY[@]+"${PRETTIER_OPTIONS_ARRAY[@]}"} \
   || { PRETTIER_RESULT=$?; echo "Problem running prettier with $INPUT_PRETTIER_OPTIONS"; exit 1; } >> $GITHUB_STEP_SUMMARY
 
 echo "Prettier result: $PRETTIER_RESULT"
@@ -139,7 +162,7 @@ if _git_changed; then
       exit 0
     fi
 
-    # Commit and push changes back
+    # Commit
     if [ "$INPUT_SAME_COMMIT" = "true" ]; then
       echo "Amending the current commit..."
       git pull
@@ -152,8 +175,10 @@ if _git_changed; then
           git commit -m "$INPUT_COMMIT_MESSAGE" --author="$GITHUB_ACTOR <$GITHUB_ACTOR@users.noreply.github.com>" ${INPUT_COMMIT_OPTIONS:+"$INPUT_COMMIT_OPTIONS"} || echo "No files added to commit"
       fi
       push_args=()
-      [ -n "$INPUT_PUSH_OPTIONS" ] && read -ra push_args <<< "$INPUT_PUSH_OPTIONS"
-      git push origin "${push_args[@]+"${push_args[@]}"}"
+      if [ -n "${INPUT_PUSH_OPTIONS:-}" ]; then
+        read -r -d '' -a push_args <<< "$INPUT_PUSH_OPTIONS" || true
+      fi
+      git push origin ${push_args[@]+"${push_args[@]}"}
     fi
     echo "Changes pushed successfully."
   fi
