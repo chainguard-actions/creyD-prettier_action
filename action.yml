@@ -1,6 +1,8 @@
 name: Prettier Action
 description: Automatically runs prettier on all your changes.
+
 author: Conrad Großer <grosserconrad@gmail.com>
+
 inputs:
   commit_message:
     description: Commit message, will be ignored if used with same_commit
@@ -68,6 +70,7 @@ inputs:
     description: Which identity is used for git name/email when committing changes. Needs to be one of "actions" or "author".
     required: false
     default: "actions"
+
 runs:
   using: "composite"
   steps:
@@ -91,7 +94,8 @@ runs:
     - name: Prettify code!
       shell: bash
       run: >-
-        PATH=$GITHUB_ACTION_PATH/node_modules/.bin:$PATH "$GITHUB_ACTION_PATH/entrypoint.sh"
+        PATH="$GITHUB_ACTION_PATH/node_modules/.bin:$PATH"
+        "$GITHUB_ACTION_PATH/entrypoint.sh"
       env:
         INPUT_COMMIT_MESSAGE: ${{ inputs.commit_message }}
         INPUT_COMMIT_DESCRIPTION: ${{ inputs.commit_description }}
@@ -110,6 +114,7 @@ runs:
         INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
         INPUT_CLEAN_NODE_FOLDER: ${{ inputs.clean_node_folder }}
         INPUT_GIT_IDENTITY: ${{ inputs.git_identity }}
+
 branding:
   icon: "award"
   color: "green"
