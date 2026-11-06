@@ -49,9 +49,10 @@ npm install --silent "prettier@$INPUT_PRETTIER_VERSION"
 
 # Install plugins
 if [ -n "$INPUT_PRETTIER_PLUGINS" ]; then
+    PRETTIER_PLUGINS_ARRAY=()
+    read -r -d '' -a PRETTIER_PLUGINS_ARRAY <<< "$INPUT_PRETTIER_PLUGINS" || true
     if [ "$INPUT_ALLOW_OTHER_PLUGINS" != "true" ]; then
-        read -ra PRETTIER_PLUGINS_CHECK_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
-        for plugin in "${PRETTIER_PLUGINS_CHECK_ARRAY[@]}"; do
+        for plugin in ${PRETTIER_PLUGINS_ARRAY[@]+"${PRETTIER_PLUGINS_ARRAY[@]}"}; do
             echo "Checking plugin: $plugin"
             # check regex against @prettier/xyz
             if ! echo "$plugin" | grep -Eq '(@prettier\/plugin-|(@[a-z\-]+\/)?prettier-plugin-){1}([a-z\-]+)'; then
@@ -60,16 +61,20 @@ if [ -n "$INPUT_PRETTIER_PLUGINS" ]; then
             fi
         done
     fi
-    read -ra PRETTIER_PLUGINS_ARRAY <<< "$INPUT_PRETTIER_PLUGINS"
-    npm install --silent "${PRETTIER_PLUGINS_ARRAY[@]}"
+    if [ "${#PRETTIER_PLUGINS_ARRAY[@]}" -gt 0 ]; then
+        npm install --silent "${PRETTIER_PLUGINS_ARRAY[@]}"
+    fi
 fi
 )
 
 PRETTIER_RESULT=0
 echo "Prettifying files..."
 echo "Files:"
-read -ra PRETTIER_OPTIONS_ARRAY <<< "$INPUT_PRETTIER_OPTIONS"
-npx prettier "${PRETTIER_OPTIONS_ARRAY[@]}" \
+PRETTIER_OPTIONS_ARRAY=()
+if [ -n "$INPUT_PRETTIER_OPTIONS" ]; then
+  read -r -d '' -a PRETTIER_OPTIONS_ARRAY <<< "$INPUT_PRETTIER_OPTIONS" || true
+fi
+npx prettier ${PRETTIER_OPTIONS_ARRAY[@]+"${PRETTIER_OPTIONS_ARRAY[@]}"} \
   || { PRETTIER_RESULT=$?; echo "Problem running prettier with $INPUT_PRETTIER_OPTIONS"; exit 1; } >> $GITHUB_STEP_SUMMARY
 
 echo "Prettier result: $PRETTIER_RESULT"
@@ -151,12 +156,11 @@ if _git_changed; then
       else
           git commit -m "$INPUT_COMMIT_MESSAGE" --author="$GITHUB_ACTOR <$GITHUB_ACTOR@users.noreply.github.com>" ${INPUT_COMMIT_OPTIONS:+"$INPUT_COMMIT_OPTIONS"} || echo "No files added to commit"
       fi
+      PUSH_OPTIONS_ARRAY=()
       if [ -n "${INPUT_PUSH_OPTIONS:-}" ]; then
-        read -ra PUSH_OPTIONS_ARRAY <<< "$INPUT_PUSH_OPTIONS"
-        git push origin "${PUSH_OPTIONS_ARRAY[@]}"
-      else
-        git push origin
+        read -r -d '' -a PUSH_OPTIONS_ARRAY <<< "$INPUT_PUSH_OPTIONS" || true
       fi
+      git push origin ${PUSH_OPTIONS_ARRAY[@]+"${PUSH_OPTIONS_ARRAY[@]}"}
     fi
     echo "Changes pushed successfully."
   fi

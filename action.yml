@@ -1,6 +1,8 @@
 name: Prettier Action
 description: Automatically runs prettier on all your changes.
+
 author: Conrad Großer <grosserconrad@gmail.com>
+
 inputs:
   commit_message:
     description: Commit message, will be ignored if used with same_commit
@@ -72,6 +74,7 @@ inputs:
     description: Allow other plugins to be installed. By default, we are checking if the plugins are actually prettier plugins.
     required: false
     default: false
+
 runs:
   using: "composite"
   steps:
@@ -95,7 +98,8 @@ runs:
     - name: Prettify code!
       shell: bash
       run: >-
-        PATH=$GITHUB_ACTION_PATH/node_modules/.bin:$PATH "$GITHUB_ACTION_PATH/entrypoint.sh"
+        PATH="$GITHUB_ACTION_PATH/node_modules/.bin:$PATH"
+        "$GITHUB_ACTION_PATH/entrypoint.sh"
       env:
         INPUT_COMMIT_MESSAGE: ${{ inputs.commit_message }}
         INPUT_COMMIT_DESCRIPTION: ${{ inputs.commit_description }}
@@ -115,6 +119,7 @@ runs:
         INPUT_CLEAN_NODE_FOLDER: ${{ inputs.clean_node_folder }}
         INPUT_GIT_IDENTITY: ${{ inputs.git_identity }}
         INPUT_ALLOW_OTHER_PLUGINS: ${{ inputs.allow_other_plugins }}
+
 branding:
   icon: "award"
   color: "green"
